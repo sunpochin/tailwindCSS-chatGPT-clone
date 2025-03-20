@@ -59,15 +59,25 @@ export default defineNuxtConfig({
     viewer: true,
   },
 
+  // 添加 PostCSS 配置，替代獨立的 postcss.config.js 文件
+  postcss: {
+    plugins: {
+      tailwindcss: {},
+      autoprefixer: {},
+    }
+  },
+
   runtimeConfig: {
     public: {
       OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
-      apiBase: '/api'
+      apiBase: '/api',
+      recaptchaSiteKey: process.env.NUXT_PUBLIC_RECAPTCHA_SITE_KEY
     },
     OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
     pdfProcessing: {
       enabled: true
-    }
+    },
+    recaptchaSecretKey: process.env.NUXT_PRIVATE_RECAPTCHA_SECRET_KEY
   },
   alias: {
     '@': resolve(__dirname, './'),
@@ -77,7 +87,7 @@ export default defineNuxtConfig({
 
   // 確保僅在客戶端運行 PDF.js 相關代碼
   build: {
-    transpile: ['pdfjs-dist']
+    transpile: ['pdfjs-dist', 'vue-recaptcha'] // 添加 vue-recaptcha
   },
 
   // 明確指定渲染模式和強制提前處理 hydration 相關代碼
