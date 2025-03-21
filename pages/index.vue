@@ -6,23 +6,6 @@
 <template>
   <div>
     <ChatComponent />
-    <form @submit.prevent="handleSubmit">
-      <!-- 添加 CAPTCHA -->
-      <ClientOnly>
-        <Captcha 
-          :sitekey="recaptchaSiteKey"
-          @verified="onCaptchaVerified"
-          @expired="onCaptchaExpired"
-          @error="onCaptchaError"
-        />
-      </ClientOnly>
-      <button 
-        type="submit" 
-        :disabled="!message.trim() || !captchaVerified" 
-        class="...">
-        發送
-      </button>
-    </form>
   </div>
 </template>
 

@@ -21,12 +21,12 @@
         ref="textareaRef"
       ></textarea>
       <!-- PDF上傳按鈕 - 允許用戶上傳PDF文件供AI分析 -->
-      <button 
+      <!-- <button 
         @click="triggerFileUpload" 
         class="absolute bottom-2 left-2 py-1 px-3 bg-transparent text-blue-600 border border-blue-600 rounded hover:bg-blue-50 text-sm cursor-pointer z-10 transition-colors duration-200"
       >
         上傳 PDF
-      </button>
+      </button> -->
     </div>
     <!-- 隱藏的檔案輸入框 - 實際處理文件上傳但不直接顯示 -->
     <input 
