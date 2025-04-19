@@ -111,8 +111,4 @@ export default defineNuxtConfig({
     renderJsonPayloads: false,
     componentIslands: false // 避免使用可能不穩定的島嶼組件
   },
-  routeRules: {
-    '/': { redirect: '/home' }
-  }
-
 })
