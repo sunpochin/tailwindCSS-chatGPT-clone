@@ -16,7 +16,7 @@ A modern ChatGPT interface clone built with TailwindCSS, offering a clean and re
 
 ## Demo
 
-[Add screenshots or GIFs of your application here]
+https://tailwind-css-chat-gpt-clone.vercel.app/
 
 ## Tech Stack
 
@@ -24,8 +24,8 @@ A modern ChatGPT interface clone built with TailwindCSS, offering a clean and re
 - CSS3
 - JavaScript
 - [TailwindCSS](https://tailwindcss.com/) - Utility-first CSS framework
-- [Vue 2](https://v2.vuejs.org/) - Progressive JavaScript framework
-- [Nuxt 2](https://nuxtjs.org/) - Vue framework for server-side rendering
+- [Vue 3](https://vuejs.org/) - Progressive JavaScript framework
+- [Nuxt 3](https://nuxtjs.org/) - Vue framework for server-side rendering
 
 ## Prerequisites
 
@@ -46,8 +46,6 @@ cd tailwindCSS-chatGPT-clone
 2. Install dependencies:
 
 ```bash
-npm install
-# or
 yarn install
 ```
 
@@ -56,8 +54,6 @@ yarn install
 1. Start the development server:
 
 ```bash
-npm run dev
-# or
 yarn dev
 ```
 
