@@ -111,15 +111,8 @@ export default defineNuxtConfig({
     renderJsonPayloads: false,
     componentIslands: false // 避免使用可能不穩定的島嶼組件
   },
-
-  // 調整 nitro 配置
-  nitro: {
-    preset: 'node-server',
-    minify: false, // 關閉縮小化以便於調試
-    timing: false, // 停用 timing middleware 以減少複雜性
-    compressPublicAssets: true, // 壓縮靜態資源提高效能
-    routeRules: {
-      '/**': { ssr: true } // 確保所有路由都使用SSR
-    }
+  routeRules: {
+    '/': { redirect: '/home' }
   }
+
 })
