@@ -1,6 +1,8 @@
 # TailwindCSS ChatGPT Clone
 
-A modern ChatGPT interface clone built with TailwindCSS, offering a clean and responsive chat experience.
+- 這是我的一個面試考題，我就把 Native CSS 換成 TailwindCSS, 教育我自己一下。 :D 
+- 讓它上線，還沒加上 reCAPTCHA 希望「還」不會被 cracker bots 打爆。 
+- A modern ChatGPT interface clone built with TailwindCSS, offering a clean and responsive chat experience.
 
 ## Table of Contents
 
