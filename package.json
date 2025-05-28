@@ -15,6 +15,7 @@
     "@nuxt/content": "^3.3.0",
     "@nuxtjs/tailwindcss": "^6.8.0",
     "@pinia/nuxt": "^0.5.1",
+    "@supabase/supabase-js": "^2.49.8",
     "autoprefixer": "^10.4.14",
     "markdown-it": "^14.1.0",
     "markdown-it-mermaid": "^0.2.5",
