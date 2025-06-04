@@ -13,29 +13,29 @@ export default defineNuxtConfig({
   // 開啟熱重載
   vite: {
     server: {
-      hmr: true
+      hmr: true,
     },
     optimizeDeps: {
-      include: ['pdf-parse']
+      include: ['pdf-parse'],
     },
     ssr: {
       // 避免某些模塊在SSR時出錯
-      noExternal: ['pdf-parse', 'pinia']
+      noExternal: ['pdf-parse', 'pinia'],
     },
     // 改善 hydration 問題
     build: {
-      ssrManifest: true
-    }
+      ssrManifest: true,
+    },
   },
 
   // 開發工具配置
   devtools: {
-    enabled: true
+    enabled: true,
   },
 
   // 確保 typescript 編譯不阻斷熱重載
   typescript: {
-    typeCheck: false // 關閉typeCheck以排除潛在的hydration問題來源
+    typeCheck: false, // 關閉typeCheck以排除潛在的hydration問題來源
   },
 
   // 降低兼容性日期以使用更成熟的功能
@@ -64,20 +64,21 @@ export default defineNuxtConfig({
     plugins: {
       tailwindcss: {},
       autoprefixer: {},
-    }
+    },
   },
 
   runtimeConfig: {
     public: {
       OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
       apiBase: '/api',
-      recaptchaSiteKey: process.env.NUXT_PUBLIC_RECAPTCHA_SITE_KEY
+      recaptchaSiteKey: process.env.NUXT_PUBLIC_RECAPTCHA_SITE_KEY,
+      googleClientId: process.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID || '',
     },
     OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
     pdfProcessing: {
-      enabled: true
+      enabled: true,
     },
-    recaptchaSecretKey: process.env.NUXT_PRIVATE_RECAPTCHA_SECRET_KEY
+    recaptchaSecretKey: process.env.NUXT_PRIVATE_RECAPTCHA_SECRET_KEY,
   },
   alias: {
     '@': resolve(__dirname, './'),
@@ -87,7 +88,7 @@ export default defineNuxtConfig({
 
   // 確保僅在客戶端運行 PDF.js 相關代碼
   build: {
-    transpile: ['pdfjs-dist', 'vue-recaptcha'] // 添加 vue-recaptcha
+    transpile: ['pdfjs-dist', 'vue-recaptcha'], // 添加 vue-recaptcha
   },
 
   // 明確指定渲染模式和強制提前處理 hydration 相關代碼
@@ -96,19 +97,25 @@ export default defineNuxtConfig({
     keepalive: true,
     head: {
       htmlAttrs: {
-        lang: 'en'
-      }
+        lang: 'en',
+      },
+      script: [
+        {
+          src: 'https://accounts.google.com/gsi/client',
+          async: true,
+          defer: true,
+        },
+      ],
     },
     // 強制客戶端水合設置
-    rootId: 'app'
+    rootId: 'app',
   },
 
   // 調整實驗性功能以提高穩定性
   experimental: {
     asyncEntry: false, // 關閉可能導致SSR問題的實驗性功能
-    reactivityTransform: false,
     payloadExtraction: false, // 關閉可能與hydration衝突的功能
     renderJsonPayloads: false,
-    componentIslands: false // 避免使用可能不穩定的島嶼組件
+    componentIslands: false, // 避免使用可能不穩定的島嶼組件
   },
 })
