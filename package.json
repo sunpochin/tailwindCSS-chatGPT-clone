@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@nuxt/content": "^3.3.0",
+    "@nuxtjs/supabase": "^1.5.1",
     "@nuxtjs/tailwindcss": "^6.8.0",
     "@pinia/nuxt": "^0.5.1",
     "@supabase/supabase-js": "^2.49.8",

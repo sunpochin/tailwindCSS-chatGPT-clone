@@ -44,11 +44,8 @@ export default defineNuxtConfig({
   modules: [
     '@pinia/nuxt',
     '@nuxtjs/tailwindcss', // 添加 Tailwind CSS 模組
+    '@nuxtjs/supabase', // 添加 Supabase 模組
   ],
-
-  pinia: {
-    autoImports: ['defineStore', 'storeToRefs'],
-  },
 
   // Tailwind CSS 配置
   tailwindcss: {
@@ -72,7 +69,8 @@ export default defineNuxtConfig({
       OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
       apiBase: '/api',
       recaptchaSiteKey: process.env.NUXT_PUBLIC_RECAPTCHA_SITE_KEY,
-      googleClientId: process.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID || '',
+      supabaseUrl: process.env.NUXT_PUBLIC_SUPABASE_URL || '',
+      supabaseKey: process.env.NUXT_PUBLIC_SUPABASE_KEY || '',
     },
     OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
     pdfProcessing: {
@@ -99,16 +97,20 @@ export default defineNuxtConfig({
       htmlAttrs: {
         lang: 'en',
       },
-      script: [
-        {
-          src: 'https://accounts.google.com/gsi/client',
-          async: true,
-          defer: true,
-        },
-      ],
     },
     // 強制客戶端水合設置
     rootId: 'app',
+  },
+
+  // Supabase 模組配置
+  supabase: {
+    url: process.env.NUXT_PUBLIC_SUPABASE_URL,
+    key: process.env.NUXT_PUBLIC_SUPABASE_KEY,
+    redirectOptions: {
+      login: '/auth/login', // 登錄頁面路徑 (如果需要，用戶未登錄時會跳轉到此)
+      callback: '/auth/callback', // Supabase OAuth 回調路徑 (Supabase 會處理這個)
+      exclude: ['/', '/auth/login', '/auth/callback'], // 不需要身份驗證的頁面路徑，例如首頁、登錄頁、回調頁
+    },
   },
 
   // 調整實驗性功能以提高穩定性
