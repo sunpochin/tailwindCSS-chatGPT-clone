@@ -5,7 +5,7 @@
     <!-- Google Login Button -->
     <div class="google-login-container">
       <button
-        @click="handleGoogleLogin"
+        @click="signInWithGoogle"
         class="google-login-btn"
         :disabled="isLoading"
       >
@@ -42,25 +42,26 @@
 </template>
 
 <script setup lang="ts">
-import ChatComponent from '@/components/ChatComponent.vue'
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useSupabaseClient, useRuntimeConfig } from '#imports'
+import ChatComponent from '../components/ChatComponent.vue'
 
-// 定義 Google API 介面
-interface GoogleAccounts {
-  id: {
-    initialize: (config: {
-      client_id: string
-      callback: (response: any) => void
-    }) => void
-    prompt: () => void
+const supabase = useSupabaseClient()
+const router = useRouter()
+// Supabase OAuth 完成後它會攜帶參數到這頁
+onMounted(async () => {
+  // 預設已經自動處理完交換流程，直接拿當前 session
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession()
+  if (error || !session) {
+    console.error('取得 Session 失敗', error)
+    return
   }
-}
-
-interface WindowWithGoogle extends Window {
-  google?: {
-    accounts: GoogleAccounts
-  }
-}
+  router.replace('/')
+})
 
 // 定義 API 回應介面
 interface AuthResponse {
@@ -76,37 +77,23 @@ const captchaResponse = ref('')
 const message = ref('') // 添加 message 定義
 const isLoading = ref(false)
 
-// Google 登錄處理函數
-const handleGoogleLogin = async () => {
-  try {
-    isLoading.value = true
+const signInWithGoogle = async () => {
+  console.log('url: ', `${window.location.origin}/auth/callback`)
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    },
+  })
 
-    // 這裡可以整合 Google OAuth API
-    // 您可以使用 @google-cloud/oauth2 或其他 Google 登錄庫
-
-    // 示例：使用 Google Sign-In API
-    const windowWithGoogle = window as WindowWithGoogle
-    if (typeof window !== 'undefined' && windowWithGoogle.google) {
-      // 初始化 Google Sign-In
-      windowWithGoogle.google.accounts.id.initialize({
-        client_id: config.public.googleClientId, // 需要在 nuxt.config.ts 中配置
-        callback: handleGoogleResponse,
-      })
-
-      // 顯示登錄提示
-      windowWithGoogle.google.accounts.id.prompt()
-    } else {
-      console.error('Google Sign-In API 未載入')
-      alert('Google 登錄服務暫時無法使用，請稍後再試')
-    }
-  } catch (error) {
-    console.error('Google 登錄錯誤:', error)
-    alert('登錄失敗，請稍後再試')
-  } finally {
-    isLoading.value = false
+  if (error) {
+    console.error('Google 登入失敗：', error)
+    // 這裡你可以顯示錯誤訊息給使用者
+  } else {
+    console.log('已前往 Google 授權頁面：', data)
+    // 之後畫面會被導到 Supabase 的授權頁面
   }
 }
-
 // 處理 Google 登錄回應
 const handleGoogleResponse = async (response: any) => {
   try {
