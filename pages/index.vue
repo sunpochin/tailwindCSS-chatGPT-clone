@@ -36,7 +36,11 @@
         <span v-else>登錄中...</span>
       </button>
     </div>
-
+    <div v-if="user" class="user-info" style="text-align:center; margin-bottom:1rem;">
+      <div>已登入：{{ user.email }}</div>
+      <div v-if="user.user_metadata && user.user_metadata.full_name">姓名：{{ user.user_metadata.full_name }}</div>
+      <div v-if="user.id">ID：{{ user.id }}</div>
+    </div>
     <ChatComponent />
   </div>
 </template>
@@ -63,37 +67,57 @@ onMounted(async () => {
   router.replace('/')
 })
 
-// 定義 API 回應介面
-interface AuthResponse {
-  success: boolean
-  user?: any
-  message?: string
+/**
+ * user 狀態：存放目前登入的使用者資訊（如 email、姓名、ID）
+ * fetchUser：呼叫 supabase.auth.getSession() 取得 session，並將 user 存到 user.value
+ * onMounted：頁面載入時自動取得目前登入者資訊
+ * signInWithGoogle：執行 Google OAuth 登入，登入後自動更新 user 狀態
+ *
+ * <template> 會根據 user 狀態顯示目前登入者的 email、姓名、ID
+ */
+const isLoading = ref(false)
+const user = ref<any>(null)
+
+// 取得目前登入者資訊，存到 user 狀態
+const fetchUser = async () => {
+  const { data, error } = await supabase.auth.getSession()
+  if (error || !data.session) {
+    user.value = null
+    return
+  }
+  user.value = data.session.user
 }
 
-const config = useRuntimeConfig()
-const recaptchaSiteKey = config.public.recaptchaSiteKey
-const captchaVerified = ref(false)
-const captchaResponse = ref('')
-const message = ref('') // 添加 message 定義
-const isLoading = ref(false)
+// 頁面載入時自動取得登入者資訊
+onMounted(async () => {
+  await fetchUser()
+  // router.replace('/') // 不要自動重導，避免無限循環
+})
 
+// Google 登入流程，成功後自動更新 user 狀態
 const signInWithGoogle = async () => {
-  console.log('url: ', `${window.location.origin}/auth/callback`)
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
-    },
-  })
-
-  if (error) {
-    console.error('Google 登入失敗：', error)
-    // 這裡你可以顯示錯誤訊息給使用者
-  } else {
-    console.log('已前往 Google 授權頁面：', data)
-    // 之後畫面會被導到 Supabase 的授權頁面
+  console.log('開始 Google 登入流程...')
+  isLoading.value = true
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    })
+    if (error) {
+      console.error('Google 登入失敗：', error)
+    } else {
+      console.log('已前往 Google 授權頁面：', data)
+    }
+  } catch (e) {
+    console.error('Google 登入流程發生錯誤：', e)
+  } finally {
+    isLoading.value = false
+    await fetchUser()
   }
 }
+
 // 處理 Google 登錄回應
 const handleGoogleResponse = async (response: any) => {
   try {
