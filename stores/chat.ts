@@ -1,6 +1,6 @@
-import { defineStore } from 'pinia';
-import { v4 as uuidv4 } from 'uuid';
-import { useChat } from '~/composables/useChat';
+import { defineStore } from 'pinia'
+import { v4 as uuidv4 } from 'uuid'
+import { useChat } from '../composables/useChat'
 
 /**
  * @file 聊天狀態管理 Store
@@ -15,9 +15,9 @@ import { useChat } from '~/composables/useChat';
  * @property {'user' | 'assistant'} role - 消息發送者角色（用戶或助手）
  */
 interface Message {
-  id: number;
-  text: string;
-  role: 'user' | 'assistant';
+  id: number
+  text: string
+  role: 'user' | 'assistant'
 }
 
 /**
@@ -29,10 +29,10 @@ interface Message {
  * @property {string} timestamp - 聊天創建時間
  */
 export interface Chat {
-  id: string;
-  title: string;
-  messages: Message[];
-  timestamp: string; // 新增 timestamp 屬性
+  id: string
+  title: string
+  messages: Message[]
+  timestamp: string // 新增 timestamp 屬性
 }
 
 /**
@@ -46,7 +46,7 @@ export const useChatStore = defineStore('chat', {
     isStreaming: false, // 是否正在進行流式傳輸
     initialized: false, // 追踪是否已初始化
     currentModel: 'gpt-4o-mini', // 當前使用的模型，設定預設值
-    streamingMessage: '', 
+    streamingMessage: '',
   }),
 
   getters: {
@@ -54,8 +54,8 @@ export const useChatStore = defineStore('chat', {
      * @description 獲取當前聊天對話
      */
     currentChat: (state) => {
-      if (!state.currentChatId) return null;
-      return state.chats.find((chat) => chat.id === state.currentChatId);
+      if (!state.currentChatId) return null
+      return state.chats.find((chat) => chat.id === state.currentChatId)
     },
   },
 
@@ -67,14 +67,14 @@ export const useChatStore = defineStore('chat', {
       // 只在未初始化時創建新聊天
       if (!this.initialized) {
         if (process.client) {
-          this.loadChatsFromLocalStorage(); // 從 LocalStorage 載入對話
+          this.loadChatsFromLocalStorage() // 從 LocalStorage 載入對話
         }
         if (this.chats.length === 0 && !this.currentChatId) {
-          this.createNewChat();
+          this.createNewChat()
         }
-        this.initialized = true;
+        this.initialized = true
       }
-      return this;
+      return this
     },
 
     /**
@@ -83,12 +83,12 @@ export const useChatStore = defineStore('chat', {
     hydrate(initialState) {
       // 先呼叫 init 初始化
       this.init()
-      
+
       // 再水合初始狀態
       if (initialState) {
         this.$patch(initialState)
       }
-      
+
       // 確保有對話存在，如果沒有則建立新的
       if (this.chats.length === 0 || !this.currentChatId) {
         this.createNewChat()
@@ -99,18 +99,18 @@ export const useChatStore = defineStore('chat', {
      * @description 創建新聊天
      */
     createNewChat() {
-      const chatId = uuidv4();
+      const chatId = uuidv4()
       this.chats.push({
         id: chatId,
         title: `新對話 ${this.chats.length + 1}`,
         messages: [],
         timestamp: new Date().toISOString(), // 設定創建時間
-      });
-      this.currentChatId = chatId;
+      })
+      this.currentChatId = chatId
       if (process.client) {
-        this.saveChatsToLocalStorage(); // 儲存對話到 LocalStorage
+        this.saveChatsToLocalStorage() // 儲存對話到 LocalStorage
       }
-      return chatId;
+      return chatId
     },
 
     /**
@@ -118,10 +118,10 @@ export const useChatStore = defineStore('chat', {
      */
     selectChat(id) {
       if (this.chatExists(id)) {
-        this.currentChatId = id;
+        this.currentChatId = id
       }
       if (process.client) {
-        this.saveChatsToLocalStorage();
+        this.saveChatsToLocalStorage()
       }
     },
 
@@ -131,9 +131,9 @@ export const useChatStore = defineStore('chat', {
      */
     setModel(modelId) {
       console.log('改用模型:', modelId)
-      this.currentModel = modelId;
+      this.currentModel = modelId
       if (process.client) {
-        localStorage.setItem('currentModel', modelId);
+        localStorage.setItem('currentModel', modelId)
       }
     },
 
@@ -143,85 +143,106 @@ export const useChatStore = defineStore('chat', {
      */
     async sendMessage(text) {
       if (!this.currentChatId) {
-        this.createNewChat();
+        this.createNewChat()
       }
 
-      const chat = this.currentChat;
+      const chat = this.currentChat
 
       // 檢查是否為第一次對話
-      const isFirstMessage = chat.messages.length === 0;
+      const isFirstMessage = chat.messages.length === 0
 
       // 添加用戶消息
-      chat.messages = [...chat.messages, {
-        id: Date.now(),
-        text,
-        role: 'user',
-      }];
+      chat.messages = [
+        ...chat.messages,
+        {
+          id: Date.now(),
+          text,
+          role: 'user',
+        },
+      ]
 
       // 標記開始流式傳輸
-      this.isStreaming = true;
+      this.isStreaming = true
 
       // 初始化空的助手回應
-      const assistantMessageId = Date.now() + 1;
-      chat.messages = [...chat.messages, {
-        id: assistantMessageId,
-        text: '',
-        role: 'assistant',
-      }];
+      const assistantMessageId = Date.now() + 1
+      chat.messages = [
+        ...chat.messages,
+        {
+          id: assistantMessageId,
+          text: '',
+          role: 'assistant',
+        },
+      ]
 
       try {
         // 使用 useChat composable
-        const chatter = useChat();
-        chatter.switchModel(this.currentModel);
+        const chatter = useChat()
+        chatter.switchModel(this.currentModel)
 
         // 提取當前對話並格式化為API的格式
-        const apiMessages = chat.messages.slice(0, -1).map(msg => ({
+        const apiMessages = chat.messages.slice(0, -1).map((msg) => ({
           role: msg.role,
-          content: msg.text
-        }));
-        console.log('發送訊息給API:', apiMessages);
+          content: msg.text,
+        }))
+        console.log('發送訊息給API:', apiMessages)
         // 使用API發送消息並獲取流式回應
-        chatter.streamingMessage.value = '';
+        chatter.streamingMessage.value = ''
 
         // 傳入當前選擇的模型
-        const response = await chatter.sendMessage(text, apiMessages, true, this.currentModel);
+        const response = await chatter.sendMessage(
+          text,
+          apiMessages,
+          true,
+          this.currentModel
+        )
 
         // 在流式傳輸過程中實時更新訊息
-        const assistantIndex = chat.messages.findIndex(msg => msg.id === assistantMessageId);
+        const assistantIndex = chat.messages.findIndex(
+          (msg) => msg.id === assistantMessageId
+        )
         if (assistantIndex !== -1 && response) {
           chat.messages = [
             ...chat.messages.slice(0, assistantIndex),
             { ...chat.messages[assistantIndex], text: response.content || '' },
-            ...chat.messages.slice(assistantIndex + 1)
-          ];
-          console.log('chat.ts: chat.messages.slice(0, assistantIndex): ', chat.messages.slice(0, assistantIndex))
+            ...chat.messages.slice(assistantIndex + 1),
+          ]
+          console.log(
+            'chat.ts: chat.messages.slice(0, assistantIndex): ',
+            chat.messages.slice(0, assistantIndex)
+          )
 
           // 如果是第一次對話，使用助手的回應作為標題
           if (isFirstMessage && response.content) {
-            const contentLength = response.content.length;
-            const start = Math.max(0, Math.floor(Math.random() * (contentLength - 20)));
-            chat.title = response.content.slice(start, start + 20); // 使用隨機 20 個字作為標題
+            const contentLength = response.content.length
+            const start = Math.max(
+              0,
+              Math.floor(Math.random() * (contentLength - 20))
+            )
+            chat.title = response.content.slice(start, start + 20) // 使用隨機 20 個字作為標題
           }
         }
 
-        console.log('chat.ts: 回應已完成:', response);
+        console.log('chat.ts: 回應已完成:', response)
       } catch (error) {
-        console.error('chat.ts: 發送消息失敗:', error);
+        console.error('chat.ts: 發送消息失敗:', error)
 
         // 更新助手消息為錯誤信息
-        const assistantIndex = chat.messages.findIndex(msg => msg.id === assistantMessageId);
+        const assistantIndex = chat.messages.findIndex(
+          (msg) => msg.id === assistantMessageId
+        )
         if (assistantIndex !== -1) {
           chat.messages = [
             ...chat.messages.slice(0, assistantIndex),
             { ...chat.messages[assistantIndex], text: '抱歉，請求發生錯誤。' },
-            ...chat.messages.slice(assistantIndex + 1)
-          ];
+            ...chat.messages.slice(assistantIndex + 1),
+          ]
         }
       } finally {
         // 標記流式傳輸結束
-        this.isStreaming = false;
+        this.isStreaming = false
         if (process.client) {
-          this.saveChatsToLocalStorage(); // 儲存對話到 LocalStorage
+          this.saveChatsToLocalStorage() // 儲存對話到 LocalStorage
         }
       }
     },
@@ -231,20 +252,20 @@ export const useChatStore = defineStore('chat', {
      */
     loadChatsFromLocalStorage() {
       if (process.client) {
-        const storedChats = localStorage.getItem('chats');
+        const storedChats = localStorage.getItem('chats')
         if (storedChats) {
-          this.chats = JSON.parse(storedChats);
+          this.chats = JSON.parse(storedChats)
         }
-        console.log('載入對話:', this.chats);
-        const storedCurrentChatId = localStorage.getItem('currentChatId');
+        console.log('載入對話:', this.chats)
+        const storedCurrentChatId = localStorage.getItem('currentChatId')
         if (storedCurrentChatId) {
-          this.currentChatId = storedCurrentChatId;
+          this.currentChatId = storedCurrentChatId
         }
-        
+
         // 載入儲存的模型設定
-        const storedModel = localStorage.getItem('currentModel');
+        const storedModel = localStorage.getItem('currentModel')
         if (storedModel) {
-          this.currentModel = storedModel;
+          this.currentModel = storedModel
         }
       }
     },
@@ -254,8 +275,8 @@ export const useChatStore = defineStore('chat', {
      */
     saveChatsToLocalStorage() {
       if (process.client) {
-        localStorage.setItem('chats', JSON.stringify(this.chats));
-        localStorage.setItem('currentChatId', this.currentChatId);
+        localStorage.setItem('chats', JSON.stringify(this.chats))
+        localStorage.setItem('currentChatId', this.currentChatId)
       }
     },
 
@@ -264,23 +285,23 @@ export const useChatStore = defineStore('chat', {
      * @param {string} id - 聊天ID
      */
     deleteChat(id: string) {
-      const index = this.chats.findIndex(chat => chat.id === id);
+      const index = this.chats.findIndex((chat) => chat.id === id)
       if (index !== -1) {
-        this.chats.splice(index, 1);
-        
+        this.chats.splice(index, 1)
+
         // If we deleted the current chat, select another one
         if (this.currentChatId === id) {
           if (this.chats.length > 0) {
-            this.currentChatId = this.chats[0].id;
-            return this.chats[0].id; // Return ID for navigation
+            this.currentChatId = this.chats[0].id
+            return this.chats[0].id // Return ID for navigation
           } else {
-            this.currentChatId = null;
-            return null;
+            this.currentChatId = null
+            return null
           }
         }
       }
       if (process.client) {
-        this.saveChatsToLocalStorage();
+        this.saveChatsToLocalStorage()
       }
     },
 
@@ -290,7 +311,7 @@ export const useChatStore = defineStore('chat', {
      * @returns {boolean} 是否存在
      */
     chatExists(id) {
-      return this.chats.some(chat => chat.id === id);
+      return this.chats.some((chat) => chat.id === id)
     },
-  }
-});
+  },
+})
