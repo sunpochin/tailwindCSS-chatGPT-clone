@@ -1,6 +1,2 @@
-import { createClient } from '@supabase/supabase-js'
-
-export const useSupabase = () => {
-  const config = useRuntimeConfig()
-  return createClient(config.public.supabaseUrl, config.public.supabaseKey)
-}
+// 直接 re-export Nuxt 3 內建 useSupabaseClient
+export { useSupabaseClient as useSupabase } from '#imports'

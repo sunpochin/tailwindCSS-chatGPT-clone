@@ -15,7 +15,7 @@
       <textarea 
         v-model="messageText" 
         placeholder="Send a message..."
-        @keyup.enter.exact="sendMessage"
+        @keydown.enter="onEnter"
         class="w-full p-3 pb-10 border border-gray-300 rounded-lg min-h-[60px] max-h-[300px] overflow-y-auto resize-none font-inherit text-inherit leading-normal whitespace-pre-wrap box-border transition-colors duration-200 disabled:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-80"
         :disabled="chatStore.isStreaming"
         ref="textareaRef"
@@ -79,9 +79,17 @@ onMounted(() => {
 // 發送消息函數 - 將用戶輸入發送到聊天存儲並清空輸入框
 const sendMessage = () => {
   if (!messageText.value.trim()) return // 防止發送空白消息
-  
   chatStore.sendMessage(messageText.value)
   messageText.value = '' // 清空輸入框
+}
+
+// 處理 Enter/Shift+Enter 行為
+const onEnter = (e: KeyboardEvent) => {
+  if (!e.shiftKey) {
+    e.preventDefault()
+    sendMessage()
+  }
+  // 有 shiftKey 則預設換行
 }
 
 // 觸發檔案上傳點擊 - 當用戶點擊上傳按鈕時激活隱藏的文件輸入

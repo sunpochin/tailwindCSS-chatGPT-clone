@@ -101,8 +101,10 @@ onMounted(() => {
  * 創建新聊天並導航到新聊天的 URL
  */
 const createNewChat = async () => {
-  const newChatId = await chatStore.createNewChat();
-  router.push(`/chat/${newChatId}`);
+  await chatStore.createNewChat();
+  if (chatStore.currentChatId) {
+    router.push(`/chat/${chatStore.currentChatId}`);
+  }
 };
 
 /**

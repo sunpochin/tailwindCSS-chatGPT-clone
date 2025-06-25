@@ -117,60 +117,7 @@ const signInWithGoogle = async () => {
   }
 }
 
-// 處理 Google 登錄回應
-const handleGoogleResponse = async (response: any) => {
-  try {
-    console.log('Google 登錄成功:', response)
 
-    // 將 Google JWT token 發送到後端進行驗證
-    const result = (await $fetch('/api/auth/google', {
-      method: 'POST',
-      body: {
-        credential: response.credential,
-      },
-    })) as AuthResponse
-
-    if (result.success) {
-      // 登錄成功，可以重定向或更新用戶狀態
-      console.log('用戶登錄成功:', result.user)
-      // 可以使用 navigateTo 重定向到聊天頁面
-      // await navigateTo('/chat');
-    }
-  } catch (error) {
-    console.error('處理 Google 登錄回應時發生錯誤:', error)
-    alert('登錄處理失敗')
-  }
-}
-
-const onCaptchaVerified = (response) => {
-  captchaVerified.value = true
-  captchaResponse.value = response
-}
-
-const onCaptchaExpired = () => {
-  captchaVerified.value = false
-  captchaResponse.value = ''
-}
-
-const onCaptchaError = () => {
-  captchaVerified.value = false
-  captchaResponse.value = ''
-}
-
-const handleSubmit = async () => {
-  if (!captchaVerified.value) {
-    alert('請完成 CAPTCHA 驗證')
-    return
-  }
-
-  // 將 captcha 回應送到服務器進行驗證
-  const formData = {
-    message: message.value,
-    recaptchaResponse: captchaResponse.value,
-  }
-
-  // 發送表單數據
-}
 </script>
 
 <style scoped>

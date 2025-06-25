@@ -29,74 +29,63 @@ export async function fetchChatHistory(conversationId: string) {
 }
 
 /**
- * @description 發送消息
- * @param {string} conversationId - 對話ID
- * @param {string} userMessage - 用戶消息
- * @param {string} model - 模型名稱
- * @returns {Promise} API響應
- */
-export async function sendMessage(conversationId: string, userMessage: string, model: string) {
-  try {
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        conversationId,
-        model,
-        userMessage
-      })
-    })
-    if (!response.ok) {
-      throw new Error('Network response was not ok')
-    }
-    return await response.json()
-  } catch (error) {
-    console.error('Error sending message:', error)
-    throw new Error('Failed to send message')
-  }
-}
-
-/**
- * @description 流式聊天
- * @param {string} conversationId - 對話ID
- * @param {string} userMessage - 用戶消息
- * @param {string} model - 模型名稱
- * @param {Function} onToken - 處理每個數據塊的回調
- * @returns {EventSource} 事件源
- */
-export function streamChat(conversationId: string, userMessage: string, model: string, onToken: (token: string) => void) {
-  const eventSource = new EventSource(`/api/chat?conversationId=${conversationId}&model=${model}&userMessage=${encodeURIComponent(userMessage)}`)
-
-  eventSource.onmessage = (event) => {
-    // 取得 SSE 傳回的 token
-    const data = event.data
-    onToken(data)  // 回呼給 UI 做即時顯示
-  }
-
-  eventSource.onerror = (err) => {
-    console.error('SSE error', err)
-    eventSource.close()
-  }
-
-  return eventSource
-}
-
-/**
  * @description 聊天組合式函數
  * @returns {Object} 聊天相關函數和狀態
  */
 export function useChat() {
   const config = useRuntimeConfig()
   const apiKey = config.public.OPENAI_API_KEY
-  console.log('API_KEY 配置:', apiKey ? '已設置' : '未設置')
-
   const currentModel = ref('gpt-4o')
   const isStreaming = ref(false)
   const chatStore = useChatStore()
   const streamingMessage = ref('')
-  const lastResponse = ref(null)
+  const lastResponse = ref<any>(null)
+
+  /**
+   * @description 發送普通消息
+   * @param {Array} messages - 消息數組
+   * @returns {Promise} API響應
+   */
+  async function sendRegularMessage(messages: any[]) {
+    const response = await sendChatRequest(messages, apiKey, currentModel.value, false)
+    if (response.choices && response.choices[0].message) {
+      lastResponse.value = response.choices[0].message
+      return response.choices[0].message
+    }
+    return null
+  }
+
+  /**
+   * @description 發送流式消息
+   * @param {Array} messages - 消息數組
+   * @returns {Promise} API響應
+   */
+  async function sendStreamMessage(messages: any[]) {
+    isStreaming.value = true
+    streamingMessage.value = ''
+    chatStore.streamingMessage = ''
+    try {
+      const response = await sendChatRequest(messages, apiKey, currentModel.value, true)
+      lastResponse.value = { role: 'assistant', content: '' }
+      await handleStreamResponse(
+        response,
+        (chunk) => {
+          streamingMessage.value += chunk
+          chatStore.streamingMessage += chunk
+          if (lastResponse.value) {
+            lastResponse.value.content = streamingMessage.value
+          }
+        },
+        () => {
+          isStreaming.value = false
+        }
+      )
+      return lastResponse.value
+    } catch (error) {
+      isStreaming.value = false
+      throw error
+    }
+  }
 
   /**
    * @description 發送消息
@@ -105,21 +94,27 @@ export function useChat() {
    * @param {boolean} useStream - 是否使用流式響應
    * @returns {Promise} API響應
    */
-  async function sendMessage(message, messages = [], useStream = false) {
+  async function sendMessageToOpenAI(message: string, messages: any = [], useStream = false) {
     if (!message.trim()) return
-
     if (!apiKey) {
       console.error('API密鑰未設置')
       throw new Error('API_KEY 環境變量未設置')
     }
-
-    const formattedMessages = messages.length > 0 
-      ? messages.map(msg => ({
+    // 防呆：確保 messages 一定是 array
+    let safeMessages: Array<any> = []
+    if (Array.isArray(messages)) {
+      safeMessages = messages
+    } else if (messages && typeof messages === 'object' && messages.role && messages.content) {
+      safeMessages = [messages]
+    } else {
+      safeMessages = []
+    }
+    const formattedMessages = safeMessages.length > 0 
+      ? safeMessages.map((msg: any) => ({
           role: msg.role,
           content: msg.content || msg.text
         }))
       : [{ role: 'user', content: message }]
-
     try {
       if (useStream) {
         await sendStreamMessage(formattedMessages)
@@ -138,70 +133,7 @@ export function useChat() {
     }
   }
 
-  /**
-   * @description 發送普通消息
-   * @param {Array} messages - 消息數組
-   * @returns {Promise} API響應
-   */
-  async function sendRegularMessage(messages) {
-    console.log('sendRegularMessage API 請求:', messages)
-    const response = await sendChatRequest(messages, apiKey, currentModel.value, false)
-    if (response.choices && response.choices[0].message) {
-      lastResponse.value = response.choices[0].message
-      return response.choices[0].message
-    }
-    return null
-  }
-
-  /**
-   * @description 發送流式消息
-   * @param {Array} messages - 消息數組
-   * @returns {Promise} API響應
-   */
-  async function sendStreamMessage(messages) {
-    console.log('sendStreamMessage 使用模型:', currentModel.value)
-    console.log('sendStreamMessage: ', messages)
-
-    isStreaming.value = true
-    streamingMessage.value = ''
-    chatStore.streamingMessage = ''
-
-    try {
-      const response = await sendChatRequest(messages, apiKey, currentModel.value, true)
-
-      lastResponse.value = {
-        role: 'assistant',
-        content: ''
-      }
-
-      await handleStreamResponse(
-        response,
-        (chunk) => {
-          streamingMessage.value += chunk
-          chatStore.streamingMessage += chunk
-          console.log('useChat.ts streamingMessage.value:', streamingMessage.value, 'chunk: ', chunk)
-          if (lastResponse.value) {
-            lastResponse.value.content = streamingMessage.value
-          }
-        },
-        () => {
-          isStreaming.value = false
-        }
-      )
-
-      return lastResponse.value
-    } catch (error) {
-      isStreaming.value = false
-      console.error('流式處理錯誤:', error)
-      throw error
-    }
-  }
-
-  /**
-   * @description 切換模型
-   * @param {string} modelName - 模型名稱
-   */
-  function switchModel(modelName) {
+  function switchModel(modelName: string) {
     currentModel.value = modelName
   }
 
@@ -210,7 +142,7 @@ export function useChat() {
     isStreaming,
     streamingMessage,
     lastResponse,
-    sendMessage,
+    sendMessageToOpenAI,
     switchModel
   }
 }
