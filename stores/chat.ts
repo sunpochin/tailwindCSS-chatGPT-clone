@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 import { useChat } from '../composables/useChat'
+import { useSupabase } from '../composables/useSupabase'
 
 /**
  * @file 聊天狀態管理 Store
@@ -18,7 +19,15 @@ interface Message {
   id: number
   text: string
   role: 'user' | 'assistant'
+  content: string
 }
+
+interface ChatHistory {
+  id: string
+  title: string
+  messages: Message[]
+}
+
 
 /**
  * 聊天對話介面定義
@@ -34,7 +43,7 @@ export interface Chat {
   messages: Message[]
   timestamp: string // 新增 timestamp 屬性
 }
-
+// 當前聊天 ID
 /**
  * 聊天狀態管理 Store
  * 使用 Pinia defineStore 創建具有狀態管理功能的 store
@@ -42,11 +51,13 @@ export interface Chat {
 export const useChatStore = defineStore('chat', {
   state: () => ({
     chats: [], // 所有聊天對話
-    currentChatId: null, // 當前聊天ID
     isStreaming: false, // 是否正在進行流式傳輸
     initialized: false, // 追踪是否已初始化
     currentModel: 'gpt-4o-mini', // 當前使用的模型，設定預設值
     streamingMessage: '',
+    currentChatId: null as string | null,  // 當前聊天 ID
+    chatHistories: [] as ChatHistory[],
+    messages: [] as Message[]
   }),
 
   getters: {
@@ -60,6 +71,62 @@ export const useChatStore = defineStore('chat', {
   },
 
   actions: {
+    // 取得使用者的所有聊天歷史
+    async fetchChatHistories() {
+      const supabase = useSupabase()
+      const { data, error } = await supabase
+        .from('chat_histories')
+        .select('*')
+        .order('updated_at', { ascending: false })
+      
+      if (error) throw error
+      this.chatHistories = data
+    },
+
+    // 取得特定聊天的所有訊息
+    async fetchMessages(chatId: string) {
+      const supabase = useSupabase()
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('chat_id', chatId)
+        .order('created_at')
+      
+      if (error) throw error
+      this.messages = data
+    },
+
+    // 建立新的聊天
+    async createNewChat(title: string) {
+      const supabase = useSupabase()
+      const { data, error } = await supabase
+        .from('chat_histories')
+        .insert({
+          title,
+          user_id: supabase.auth.user()?.id
+        })
+        .single()
+      
+      if (error) throw error
+      this.currentChatId = data.id
+      await this.fetchChatHistories()
+    },
+
+    // 儲存新訊息
+    async saveMessage(message: Message) {
+      const supabase = useSupabase()
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          chat_id: this.currentChatId,
+          role: message.role,
+          content: message.content
+        })
+      
+      if (error) throw error
+      await this.fetchMessages(this.currentChatId!)
+    },
+
     /**
      * @description 初始化聊天 Store
      */
@@ -95,23 +162,6 @@ export const useChatStore = defineStore('chat', {
       }
     },
 
-    /**
-     * @description 創建新聊天
-     */
-    createNewChat() {
-      const chatId = uuidv4()
-      this.chats.push({
-        id: chatId,
-        title: `新對話 ${this.chats.length + 1}`,
-        messages: [],
-        timestamp: new Date().toISOString(), // 設定創建時間
-      })
-      this.currentChatId = chatId
-      if (process.client) {
-        this.saveChatsToLocalStorage() // 儲存對話到 LocalStorage
-      }
-      return chatId
-    },
 
     /**
      * @description 切換到指定ID的聊天

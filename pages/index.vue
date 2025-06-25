@@ -39,7 +39,6 @@
     <div v-if="user" class="user-info" style="text-align:center; margin-bottom:1rem;">
       <div>已登入：{{ user.email }}</div>
       <div v-if="user.user_metadata && user.user_metadata.full_name">姓名：{{ user.user_metadata.full_name }}</div>
-      <div v-if="user.id">ID：{{ user.id }}</div>
     </div>
     <ChatComponent />
   </div>

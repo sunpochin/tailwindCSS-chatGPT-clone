@@ -34,7 +34,7 @@ import ChatSidebar from './components/ChatSidebar.vue';
 // 確保 hydration 不會中斷，使用 onMounted
 onMounted(() => {
   const chatStore = useChatStore();
-  chatStore.init();
+  chatStore.fetchMessages();
 });
 
 </script>
