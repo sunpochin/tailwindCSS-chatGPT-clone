@@ -4,12 +4,14 @@
  */
 
 import { defineStore } from 'pinia'
+import type { User } from '@supabase/supabase-js'
 import { useSupabase } from '../composables/useSupabase'
 import { useChat } from '../composables/useChat'
 
 export interface Message {
-  id: number
-  text: string
+  // 建議 id 的類型與資料庫主鍵一致，通常是 string (UUID) 或 number (serial)
+  id: number | string
+  text: string // 'text' 似乎與 'content' 重複，建議統一使用 'content'
   role: 'user' | 'assistant'
   content: string
   created_at?: string
@@ -37,8 +39,7 @@ export const useChatStore = defineStore('chat', {
     currentModel: 'gpt-4-mini', // 當前使用的模型，設定預設值
     streamingMessage: '',
     currentChatId: null as string | null,  // 當前聊天 ID
-    messages: [] as Message[],
-    user: null as any // 新增 user 狀態
+    user: null as User | null // 使用從 @supabase/supabase-js 匯入的 User 型別，增強型別安全
   }),
 
   getters: {
@@ -46,9 +47,7 @@ export const useChatStore = defineStore('chat', {
      * 獲取當前聊天對話
      */
     currentChat: (state): ChatHistory | null => {
-      if (!state.currentChatId) return null
-      const chat = state.chats.find((chat) => chat.id === state.currentChatId)
-      return chat || null
+      return state.currentChatId ? state.chats.find((chat) => chat.id === state.currentChatId) || null : null
     },
     /**
      * 取得目前登入的 Google user
@@ -57,42 +56,68 @@ export const useChatStore = defineStore('chat', {
   },
 
   actions: {
+    /**
+     * 確保使用者已登入並設定 user 狀態，避免重複的 session 檢查
+     * @returns User object or null
+     */
+    async _ensureUserSession() {
+      if (this.user) return this.user
+
+      const supabase = useSupabase()
+      const { data: { session }, error } = await supabase.auth.getSession()
+
+      if (error || !session?.user) {
+        console.warn('使用者未登入')
+        this.user = null
+        return null
+      }
+      this.user = session.user
+      return this.user
+    },
+
     // 取得使用者的所有聊天歷史
     async fetchChatHistories() {
-      const supabase = useSupabase()
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError || !sessionData.session || !sessionData.session.user) {
-        console.warn('尚未登入')
-        this.user = null
+      const user = await this._ensureUserSession()
+      if (!user) {
+        this.chats = []
+        this.currentChatId = null
         return
       }
-      const user = sessionData.session.user
-      this.user = user // 存進 state
+
+      const supabase = useSupabase()
       const { data, error } = await supabase
         .from('chat_histories')
         .select('*')
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false })
+
       if (error) throw error
-      this.chats = data
+
+      // 為每個聊天初始化 messages 陣列，避免後續操作出錯
+      this.chats = data.map(chat => ({ ...chat, messages: chat.messages || [] }))
+
       // 如果沒有當前聊天但有歷史記錄，選擇第一個
       if (!this.currentChatId && this.chats.length > 0) {
-        this.currentChatId = this.chats[0].id
-        await this.fetchMessages(this.currentChatId)
+        await this.selectChat(this.chats[0].id)
       }
     },
 
     // 取得特定聊天的所有訊息
     async fetchMessages(chatId: string) {
+      const chat = this.chats.find(c => c.id === chatId)
+      // 如果訊息已經載入過，就不用重新獲取，提升效能
+      if (chat && chat.messages.length > 0) {
+        return
+      }
+
       const supabase = useSupabase()
       const { data, error } = await supabase
         .from('messages')
         .select('*')
         .eq('chat_id', chatId)
         .order('created_at')
-      
       if (error) throw error
-      
+
       // 將獲取的消息附加到對應的聊天歷史中
       const chatIndex = this.chats.findIndex(chat => chat.id === chatId)
       if (chatIndex !== -1) {
@@ -101,46 +126,47 @@ export const useChatStore = defineStore('chat', {
     },
 
     // 建立新的聊天
-    async createNewChat(title: string) {
-      const supabase = useSupabase()
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError || !sessionData.session || !sessionData.session.user) {
-        console.warn('未登入，無法建立新對話:', sessionError)
+    async createNewChat(title: string = '新對話') {
+      const user = await this._ensureUserSession()
+      if (!user) {
+        console.warn('未登入，無法建立新對話')
         return
       }
-      const user = sessionData.session.user
-      if (!title) title = '新對話'
+
+      const supabase = useSupabase()
       const { data, error } = await supabase
         .from('chat_histories')
-        .insert({
-          title,
-          user_id: user.id
-        })
+        .insert({ title, user_id: user.id })
         .select()
         .single()
+
       if (error) throw error
-      this.currentChatId = data.id
-      await this.fetchChatHistories()  // 重新載入包含新建對話的歷史記錄
+
+      // 採用「樂觀更新」，直接將新對話加入 state，而不是重新 fetch 全部歷史紀錄
+      const newChat = { ...data, messages: [] }
+      this.chats.unshift(newChat)
+      this.currentChatId = newChat.id
     },
 
     // 儲存新訊息
-    async saveMessage(message: Message) {
-      if (!this.currentChatId) {
+    async saveMessage(message: Pick<Message, 'role' | 'content'>) {
+      if (!this.currentChatId || !this.currentChat) {
         console.warn('No current chat selected')
-        return
+        return null
       }
 
       const supabase = useSupabase()
-      const { error } = await supabase
+      const { data: savedMessage, error } = await supabase
         .from('messages')
-        .insert({
-          chat_id: this.currentChatId,
-          role: message.role,
-          content: message.text || message.content
-        })
-      
+        .insert({ chat_id: this.currentChatId, ...message })
+        .select()
+        .single()
+
       if (error) throw error
-      await this.fetchMessages(this.currentChatId)
+
+      // 樂觀更新：直接將儲存成功的新訊息推入當前對話的 messages 陣列
+      this.currentChat.messages.push(savedMessage)
+      return savedMessage
     },
 
     // 發送訊息（給 InputContainer.vue 用，並呼叫 OpenAI API）
@@ -149,31 +175,21 @@ export const useChatStore = defineStore('chat', {
         console.warn('No chat selected')
         return
       }
-      // 先存 user 訊息
-      await this.saveMessage({
-        id: Date.now(),
-        text,
-        role: 'user',
-        content: text,
-        created_at: new Date().toISOString(),
-        chat_id: this.currentChatId
-      })
+      // 儲存使用者訊息
+      await this.saveMessage({ role: 'user', content: text })
+
       // 呼叫 useChat composable 發送到 OpenAI
-      const chat = useChat()
+      const chatComposable = useChat()
       try {
         this.isStreaming = true
-        const aiContent = await chat.sendMessageToOpenAI(text, this.currentModel)
-        // 存 AI 回應
-        await this.saveMessage({
-          id: Date.now() + 1,
-          text: aiContent,
-          role: 'assistant',
-          content: aiContent,
-          created_at: new Date().toISOString(),
-          chat_id: this.currentChatId
-        })
+        const aiContent = await chatComposable.sendMessageToOpenAI(text, this.currentModel)
+        // 儲存 AI 回應
+        await this.saveMessage({ role: 'assistant', content: aiContent })
       } catch (e) {
         console.error('OpenAI 回應失敗:', e)
+        // 可以在聊天中顯示錯誤訊息
+        const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred.'
+        await this.saveMessage({ role: 'assistant', content: `抱歉，發生錯誤：${errorMessage}` })
       } finally {
         this.isStreaming = false
       }
@@ -183,42 +199,16 @@ export const useChatStore = defineStore('chat', {
      * 初始化聊天 Store
      */
     async init() {
-      if (!this.initialized) {
-        await this.fetchChatHistories()
-        this.initialized = true
-      }
+      if (this.initialized) return
+      await this.fetchChatHistories()
+      this.initialized = true
     },
 
     // 選擇聊天
     async selectChat(chatId: string) {
-      // 如果已存在該聊天，直接切換
-      const exists = this.chats.some(chat => chat.id === chatId)
-      if (exists) {
-        this.currentChatId = chatId
-        await this.fetchMessages(chatId)
-        return
-      }
-      // 若不存在，則自動建立新對話（用預設標題）
-      const supabase = useSupabase()
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError || !sessionData.session || !sessionData.session.user) {
-        console.warn('未登入，無法建立新對話:', sessionError)
-        return
-      }
-      const user = sessionData.session.user
-      const { data, error } = await supabase
-        .from('chat_histories')
-        .insert({
-          id: chatId, // 用指定的 chatId
-          title: '新對話',
-          user_id: user.id
-        })
-        .select()
-        .single()
-      if (error) throw error
-      this.currentChatId = data.id
-      await this.fetchChatHistories()
-      await this.fetchMessages(this.currentChatId)
+      this.currentChatId = chatId
+      // fetchMessages 內部會檢查是否需要重新獲取數據
+      await this.fetchMessages(chatId)
     }
   }
 })
