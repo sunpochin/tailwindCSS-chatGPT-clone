@@ -129,29 +129,46 @@ export const useChatStore = defineStore('chat', {
     async createNewChat(title: string = '新對話') {
       const user = await this._ensureUserSession()
       if (!user) {
-        console.warn('未登入，無法建立新對話')
-        return
+        console.error('未登入，無法建立新對話')
+        return null  // 明確返回 null 表示失敗
       }
 
       const supabase = useSupabase()
-      const { data, error } = await supabase
-        .from('chat_histories')
-        .insert({ title, user_id: user.id })
-        .select()
-        .single()
+      try {
+        const { data, error } = await supabase
+          .from('chat_histories')
+          .insert({ title, user_id: user.id })
+          .select()
+          .single()
 
-      if (error) throw error
+        if (error) {
+          console.error('建立聊天失敗:', error)
+          return null
+        }
 
-      // 採用「樂觀更新」，直接將新對話加入 state，而不是重新 fetch 全部歷史紀錄
-      const newChat = { ...data, messages: [] }
-      this.chats.unshift(newChat)
-      this.currentChatId = newChat.id
+        // 採用「樂觀更新」，直接將新對話加入 state，而不是重新 fetch 全部歷史紀錄
+        const newChat = { ...data, messages: [] }
+        this.chats.unshift(newChat)
+        this.currentChatId = newChat.id
+        
+        console.log('成功建立新聊天:', newChat.id)
+        return newChat
+      } catch (error) {
+        console.error('建立聊天時發生例外:', error)
+        return null
+      }
     },
 
     // 儲存新訊息
     async saveMessage(message: Pick<Message, 'role' | 'content'>) {
       if (!this.currentChatId || !this.currentChat) {
-        console.warn('No current chat selected')
+        console.error('儲存訊息失敗：沒有選擇聊天', { currentChatId: this.currentChatId, currentChat: !!this.currentChat })
+        return null
+      }
+      
+      // 額外檢查：確保 currentChatId 不是 undefined 字串
+      if (this.currentChatId === 'undefined' || this.currentChatId === undefined) {
+        console.error('儲存訊息失敗：currentChatId 是 undefined')
         return null
       }
 
@@ -190,9 +207,14 @@ export const useChatStore = defineStore('chat', {
      * @param text 使用者輸入的訊息內容
      */
     async sendMessage(text: string) {
+      // 如果沒有當前聊天，自動建立新聊天
       if (!this.currentChatId) {
-        console.warn('No chat selected')
-        return
+        console.log('沒有選擇聊天，自動建立新聊天')
+        const newChat = await this.createNewChat('新對話')
+        if (!newChat || !this.currentChatId) {
+          console.error('無法建立新聊天，可能是使用者未登入')
+          throw new Error('無法建立聊天：使用者未登入或建立失敗')
+        }
       }
       
       // 1. 先儲存使用者訊息到 Supabase
@@ -203,6 +225,8 @@ export const useChatStore = defineStore('chat', {
       try {
         this.isStreaming = true // 顯示載入狀態
         const aiResponse = await chatComposable.sendMessageToOpenAI(text, this.currentModel)
+
+        console.log('AI response:', aiResponse)
         
         // 3. 解析 AI 回應並儲存到 Supabase（修復：提取 content 字段）
         const aiContent = typeof aiResponse === 'string' ? aiResponse : aiResponse?.content || JSON.stringify(aiResponse)

@@ -69,7 +69,7 @@
  * 引入聊天狀態管理 Store 和 Vue Router
  * 使用 Pinia 管理聊天狀態，使用 Vue Router 處理 URL 導航
  */
-import { useChatStore } from '~/stores/chat';
+import { useChatStore } from '../stores/chatStore';
 import { useRouter, useRoute } from 'vue-router';
 import { computed, onMounted } from 'vue';
 
