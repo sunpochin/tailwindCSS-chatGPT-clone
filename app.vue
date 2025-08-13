@@ -28,7 +28,7 @@
  * 引入側邊欄組件
  * 側邊欄組件負責顯示聊天歷史和提供新建聊天的功能
  */
-import { useChatStore } from '~/stores/chat';
+import { useChatStore } from '../stores/chatStore';
 import ChatSidebar from './components/ChatSidebar.vue';
 
 // 確保 hydration 不會中斷，使用 onMounted

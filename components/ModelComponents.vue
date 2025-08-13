@@ -5,7 +5,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue'
-import { useChatStore } from '../stores/chat'
+import { useChatStore } from '../stores/chatStore'
 
 const chatStore = useChatStore()
 

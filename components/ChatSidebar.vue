@@ -34,7 +34,7 @@
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
           </svg>
           <span class="chat-title">{{ chat.title }}</span>
-          <span class="chat-timestamp">{{ formatTimestamp(chat.timestamp) }}</span> <!-- 顯示時間 -->
+          <span class="chat-timestamp">{{ formatTimestamp(chat.updated_at) }}</span> <!-- 顯示時間 -->
           <span class="delete-chat-button" @click.stop="chatStore.deleteChat(chat.id)">
             <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" class="icon" height="16" width="16" xmlns="http://www.w3.org/2000/svg">
               <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -69,9 +69,9 @@
  * 引入聊天狀態管理 Store 和 Vue Router
  * 使用 Pinia 管理聊天狀態，使用 Vue Router 處理 URL 導航
  */
-import { useChatStore } from '~/stores/chat';
+import { useChatStore } from '../stores/chatStore';
 import { useRouter, useRoute } from 'vue-router';
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 
 /**
  * 初始化聊天狀態 Store 和 Router
@@ -136,8 +136,8 @@ const formatTimestamp = (timestamp: string) => {
  */
 const sortedChats = computed(() => {
   return chatStore.chats.slice().sort((a, b) => {
-    const dateA = new Date(a.timestamp);
-    const dateB = new Date(b.timestamp);
+    const dateA = new Date(a.updated_at);
+    const dateB = new Date(b.updated_at);
     if (isNaN(dateA.getTime())) return 1;
     if (isNaN(dateB.getTime())) return -1;
     return dateB.getTime() - dateA.getTime();
@@ -153,11 +153,11 @@ const shouldShowDivider = (index: number) => {
   if (index === 0) return true;
   const currentChat = sortedChats.value[index];
   const previousChat = sortedChats.value[index - 1];
-  const currentDate = new Date(currentChat.timestamp);
-  const previousDate = previousChat ? new Date(previousChat.timestamp) : null;
+  const currentDate = new Date(currentChat.updated_at);
+  const previousDate = previousChat ? new Date(previousChat.updated_at) : null;
 
   if (isNaN(currentDate.getTime())) {
-    return !sortedChats.value.slice(0, index).some(chat => isNaN(new Date(chat.timestamp).getTime()));
+    return !sortedChats.value.slice(0, index).some(chat => isNaN(new Date(chat.updated_at).getTime()));
   }
 
   return !previousDate || currentDate.getDate() !== previousDate.getDate();
@@ -170,9 +170,9 @@ const shouldShowDivider = (index: number) => {
  */
 const getDividerText = (index: number) => {
   const currentChat = sortedChats.value[index];
-  const currentDate = new Date(currentChat.timestamp);
+  const currentDate = new Date(currentChat.updated_at);
   const previousChat = sortedChats.value[index - 1];
-  const previousDate = previousChat ? new Date(previousChat.timestamp) : null;
+  const previousDate = previousChat ? new Date(previousChat.updated_at) : null;
 
   if (isNaN(currentDate.getTime())) {
     return '最近 30 天';

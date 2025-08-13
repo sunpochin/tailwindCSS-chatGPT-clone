@@ -1,5 +1,5 @@
 import { defineNuxtPlugin } from '#app'
-import { useChatStore } from '~/stores/chat'
+import { useChatStore } from '../stores/chatStore'
 
 export default defineNuxtPlugin(nuxtApp => {
   console.log('Init-chat 外掛已載入')

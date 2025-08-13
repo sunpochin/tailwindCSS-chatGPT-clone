@@ -12,6 +12,13 @@
     </div>
     <!-- 輸入區域容器 - 包含文本輸入框和上傳按鈕 -->
     <div class="relative flex-1">
+      <!-- 
+        多行文本輸入框 - 使用者主要輸入區域
+        - v-model：雙向綁定輸入內容
+        - Enter：發送訊息，Shift+Enter：換行
+        - 支援自動高度調整（60px-300px）
+        - 串流生成時會被禁用
+      -->
       <textarea 
         v-model="messageText" 
         placeholder="Send a message..."
@@ -20,29 +27,13 @@
         :disabled="chatStore.isStreaming"
         ref="textareaRef"
       ></textarea>
-      <!-- PDF上傳按鈕 - 允許用戶上傳PDF文件供AI分析 -->
-      <!-- <button 
-        @click="triggerFileUpload" 
-        class="absolute bottom-2 left-2 py-1 px-3 bg-transparent text-blue-600 border border-blue-600 rounded hover:bg-blue-50 text-sm cursor-pointer z-10 transition-colors duration-200"
-      >
-        上傳 PDF
-      </button> -->
     </div>
-    <!-- 隱藏的檔案輸入框 - 實際處理文件上傳但不直接顯示 -->
-    <input 
-      type="file" 
-      ref="fileInput" 
-      @change="handleFileUpload" 
-      accept="application/pdf" 
-      class="hidden"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
-import { useChatStore } from '~/stores/chat'
-import { extractTextFromPDF } from '~/utils/pdfUtils'
+import { useChatStore } from '../stores/chatStore'
 
 // 引入聊天狀態管理 - 用於發送消息和追踪生成狀態
 const chatStore = useChatStore()
@@ -79,12 +70,14 @@ onMounted(() => {
 // 發送消息函數 - 將用戶輸入發送到聊天存儲並清空輸入框
 const sendMessage = () => {
   if (!messageText.value.trim()) return // 防止發送空白消息
+  console.log('用戶輸入:', messageText.value)
   chatStore.sendMessage(messageText.value)
   messageText.value = '' // 清空輸入框
 }
 
 // 處理 Enter/Shift+Enter 行為
 const onEnter = (e: KeyboardEvent) => {
+  console.log('用戶輸入:', messageText.value)
   if (!e.shiftKey) {
     e.preventDefault()
     sendMessage()
@@ -92,10 +85,6 @@ const onEnter = (e: KeyboardEvent) => {
   // 有 shiftKey 則預設換行
 }
 
-// 觸發檔案上傳點擊 - 當用戶點擊上傳按鈕時激活隱藏的文件輸入
-const triggerFileUpload = () => {
-  fileInput.value?.click()
-}
 
 // 聚焦文本區域並將游標放置在文本末尾 - 提高用戶體驗
 const focusTextarea = () => {
@@ -111,25 +100,6 @@ const focusTextarea = () => {
   }, 100) // 短暫延遲確保DOM已更新
 }
 
-// 處理檔案上傳 - 解析PDF內容並將其添加到輸入框
-const handleFileUpload = async (event: Event) => {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (file) {
-    try {
-      // 從PDF提取文本
-      const text = await extractTextFromPDF(file)
-      console.log('PDF 內容:', text)
-      // 將 PDF 內容放置到 textarea 中，而不是直接發送
-      messageText.value = `${text}\n======\n以上是從「${file.name}」提取的內容，按下 Enter 送出 prompt。`
-      // 清除 file input 的值，以便可以重新上傳相同檔案
-      if (fileInput.value) fileInput.value.value = ''
-      // 聚焦到 textarea - 讓用戶可以編輯提取的內容
-      focusTextarea()
-    } catch (error) {
-      console.error('PDF 解析失敗:', error)
-    }
-  }
-}
 </script>
 
 <style>

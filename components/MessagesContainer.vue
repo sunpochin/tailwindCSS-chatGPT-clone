@@ -27,8 +27,8 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue';
-import { useChatStore } from '../stores/chat';
-import type { Message } from '../stores/chat';
+import { useChatStore } from '../stores/chatStore';
+import type { Message } from '../stores/chatStore';
 
 const chatStore = useChatStore();
 const messagesContainer = ref<HTMLDivElement | null>(null);
