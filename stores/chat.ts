@@ -156,6 +156,8 @@ export const useChatStore = defineStore('chat', {
       }
 
       const supabase = useSupabase()
+      
+      // 1. 儲存訊息到資料庫
       const { data: savedMessage, error } = await supabase
         .from('messages')
         .insert({ chat_id: this.currentChatId, ...message })
@@ -164,34 +166,54 @@ export const useChatStore = defineStore('chat', {
 
       if (error) throw error
 
-      // 樂觀更新：直接將儲存成功的新訊息推入當前對話的 messages 陣列
+      // 2. 更新聊天的 updated_at 時間戳（重要：讓聊天在側邊欄中正確排序）
+      const { error: updateError } = await supabase
+        .from('chat_histories')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', this.currentChatId)
+
+      if (updateError) {
+        console.warn('更新聊天時間戳失敗:', updateError)
+      } else {
+        // 3. 樂觀更新本地狀態：更新聊天的 updated_at
+        this.currentChat.updated_at = new Date().toISOString()
+      }
+
+      // 4. 樂觀更新：直接將儲存成功的新訊息推入當前對話的 messages 陣列
       this.currentChat.messages.push(savedMessage)
       return savedMessage
     },
 
-    // 發送訊息（給 InputContainer.vue 用，並呼叫 OpenAI API）
+    /**
+     * 發送訊息並處理 LLM 回應（主要入口點）
+     * 此方法是處理使用者訊息和 AI 回應的核心邏輯
+     * @param text 使用者輸入的訊息內容
+     */
     async sendMessage(text: string) {
       if (!this.currentChatId) {
         console.warn('No chat selected')
         return
       }
-      // 儲存使用者訊息
+      
+      // 1. 先儲存使用者訊息到 Supabase
       await this.saveMessage({ role: 'user', content: text })
 
-      // 呼叫 useChat composable 發送到 OpenAI
+      // 2. 呼叫 OpenAI API 取得 AI 回應
       const chatComposable = useChat()
       try {
-        this.isStreaming = true
-        const aiContent = await chatComposable.sendMessageToOpenAI(text, this.currentModel)
-        // 儲存 AI 回應
+        this.isStreaming = true // 顯示載入狀態
+        const aiResponse = await chatComposable.sendMessageToOpenAI(text, this.currentModel)
+        
+        // 3. 解析 AI 回應並儲存到 Supabase（修復：提取 content 字段）
+        const aiContent = typeof aiResponse === 'string' ? aiResponse : aiResponse?.content || JSON.stringify(aiResponse)
         await this.saveMessage({ role: 'assistant', content: aiContent })
       } catch (e) {
         console.error('OpenAI 回應失敗:', e)
-        // 可以在聊天中顯示錯誤訊息
+        // 4. 錯誤處理：儲存錯誤訊息到對話記錄
         const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred.'
         await this.saveMessage({ role: 'assistant', content: `抱歉，發生錯誤：${errorMessage}` })
       } finally {
-        this.isStreaming = false
+        this.isStreaming = false // 結束載入狀態
       }
     },
 
@@ -209,6 +231,11 @@ export const useChatStore = defineStore('chat', {
       this.currentChatId = chatId
       // fetchMessages 內部會檢查是否需要重新獲取數據
       await this.fetchMessages(chatId)
+    },
+
+    // 檢查聊天是否存在
+    chatExists(chatId: string): boolean {
+      return this.chats.some((chat: ChatHistory) => chat.id === chatId)
     }
   }
 })

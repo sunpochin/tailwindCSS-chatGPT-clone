@@ -12,6 +12,13 @@
     </div>
     <!-- 輸入區域容器 - 包含文本輸入框和上傳按鈕 -->
     <div class="relative flex-1">
+      <!-- 
+        多行文本輸入框 - 使用者主要輸入區域
+        - v-model：雙向綁定輸入內容
+        - Enter：發送訊息，Shift+Enter：換行
+        - 支援自動高度調整（60px-300px）
+        - 串流生成時會被禁用
+      -->
       <textarea 
         v-model="messageText" 
         placeholder="Send a message..."
